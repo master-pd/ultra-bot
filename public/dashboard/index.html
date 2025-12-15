@@ -1,1 +1,1320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultra Professional Bot - Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #4A90E2;
+            --secondary-color: #7B68EE;
+            --danger-color: #E24A4A;
+            --success-color: #4AE27B;
+            --warning-color: #E2B84A;
+            --dark-bg: #1a1a2e;
+            --darker-bg: #16213e;
+            --light-text: #f0f0f0;
+        }
+        
+        body {
+            background-color: var(--dark-bg);
+            color: var(--light-text);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .sidebar {
+            background-color: var(--darker-bg);
+            min-height: 100vh;
+            position: fixed;
+            width: 250px;
+            padding-top: 20px;
+        }
+        
+        .main-content {
+            margin-left: 250px;
+            padding: 20px;
+        }
+        
+        .nav-link {
+            color: var(--light-text);
+            padding: 10px 15px;
+            margin: 5px 0;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        
+        .nav-link:hover, .nav-link.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .card {
+            background-color: var(--darker-bg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .thread-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        
+        .status-online {
+            background-color: var(--success-color);
+        }
+        
+        .status-offline {
+            background-color: var(--danger-color);
+        }
+        
+        .status-warning {
+            background-color: var(--warning-color);
+        }
+        
+        .command-badge {
+            background-color: rgba(74, 144, 226, 0.2);
+            color: var(--primary-color);
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            margin: 2px;
+        }
+        
+        .log-entry {
+            padding: 10px;
+            border-left: 3px solid transparent;
+            margin-bottom: 5px;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+        }
+        
+        .log-error {
+            border-left-color: var(--danger-color);
+        }
+        
+        .log-warning {
+            border-left-color: var(--warning-color);
+        }
+        
+        .log-info {
+            border-left-color: var(--primary-color);
+        }
+        
+        .fun-tag {
+            background: linear-gradient(45deg, var(--secondary-color), #9b59b6);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            display: inline-block;
+            margin: 2px;
+        }
+        
+        .metric-chart {
+            height: 200px;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+            padding: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                position: relative;
+                min-height: auto;
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="text-center mb-4">
+            <h3><i class="fas fa-robot"></i> Ultra Bot</h3>
+            <div class="text-muted small">Professional Messenger Bot</div>
+        </div>
+        
+        <div class="px-3 mb-4">
+            <div class="user-info text-center">
+                <img id="userAvatar" src="" class="user-avatar mb-2" alt="User">
+                <h6 id="userName">Loading...</h6>
+                <div class="badge bg-primary" id="userRole">Role</div>
+            </div>
+        </div>
+        
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link active" href="#" data-page="dashboard">
+                    <i class="fas fa-tachometer-alt me-2"></i> Dashboard
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" data-page="threads">
+                    <i class="fas fa-comments me-2"></i> Threads
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" data-page="users">
+                    <i class="fas fa-users me-2"></i> Users
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" data-page="fun">
+                    <i class="fas fa-gamepad me-2"></i> Fun System
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" data-page="commands">
+                    <i class="fas fa-terminal me-2"></i> Commands
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" data-page="admins">
+                    <i class="fas fa-user-shield me-2"></i> Admin Management
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" data-page="logs">
+                    <i class="fas fa-clipboard-list me-2"></i> Logs
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" data-page="system">
+                    <i class="fas fa-cogs me-2"></i> System
+                </a>
+            </li>
+            <li class="nav-item mt-4">
+                <button class="btn btn-sm btn-outline-danger w-100" id="logoutBtn">
+                    <i class="fas fa-sign-out-alt me-2"></i> Logout
+                </button>
+            </li>
+        </ul>
+        
+        <div class="mt-auto p-3 text-center">
+            <div class="small text-muted">
+                <span id="botStatus" class="status-indicator status-offline"></span>
+                <span id="statusText">Offline</span>
+            </div>
+            <div class="small text-muted" id="uptime">Uptime: --</div>
+        </div>
+    </nav>
 
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Dashboard Page -->
+        <div id="dashboardPage" class="page">
+            <h2 class="mb-4"><i class="fas fa-tachometer-alt me-2"></i> Dashboard</h2>
+            
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card stat-card">
+                        <div class="stat-number" id="totalUsers">0</div>
+                        <div class="stat-label">Total Users</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stat-card">
+                        <div class="stat-number" id="activeThreads">0</div>
+                        <div class="stat-label">Active Threads</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stat-card">
+                        <div class="stat-number" id="commandsToday">0</div>
+                        <div class="stat-label">Commands Today</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stat-card">
+                        <div class="stat-number" id="activeFuns">0</div>
+                        <div class="stat-label">Active Fun Loops</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i> Activity</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="metric-chart" id="activityChart">
+                                <!-- Chart will be rendered here -->
+                                <div class="text-center text-muted mt-5">
+                                    <i class="fas fa-chart-bar fa-3x"></i>
+                                    <p class="mt-2">Activity chart will appear here</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-bolt me-2"></i> Quick Actions</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-primary" id="quickRestart">
+                                    <i class="fas fa-redo me-2"></i> Restart Bot
+                                </button>
+                                <button class="btn btn-success" id="quickBackup">
+                                    <i class="fas fa-save me-2"></i> Create Backup
+                                </button>
+                                <button class="btn btn-info" id="quickRefresh">
+                                    <i class="fas fa-sync me-2"></i> Refresh Data
+                                </button>
+                                <button class="btn btn-warning" id="quickStopFuns" style="display: none;">
+                                    <i class="fas fa-stop-circle me-2"></i> Stop All Fun
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i> System Status</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="systemStatus">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Memory Usage:</span>
+                                    <span id="memoryUsage">--</span>
+                                </div>
+                                <div class="progress mb-3" style="height: 5px;">
+                                    <div id="memoryBar" class="progress-bar" style="width: 0%"></div>
+                                </div>
+                                
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>CPU Load:</span>
+                                    <span id="cpuLoad">--</span>
+                                </div>
+                                <div class="progress mb-3" style="height: 5px;">
+                                    <div id="cpuBar" class="progress-bar bg-warning" style="width: 0%"></div>
+                                </div>
+                                
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Cache Hit Rate:</span>
+                                    <span id="cacheHitRate">--</span>
+                                </div>
+                                <div class="progress" style="height: 5px;">
+                                    <div id="cacheBar" class="progress-bar bg-success" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-history me-2"></i> Recent Commands</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="recentCommands" class="list-group list-group-flush">
+                                <!-- Recent commands will be loaded here -->
+                                <div class="text-center text-muted py-4">
+                                    <i class="fas fa-clock fa-2x"></i>
+                                    <p class="mt-2">No recent commands</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-bug me-2"></i> Recent Errors</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="recentErrors">
+                                <!-- Recent errors will be loaded here -->
+                                <div class="text-center text-success py-4">
+                                    <i class="fas fa-check-circle fa-2x"></i>
+                                    <p class="mt-2">No errors in the last hour</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Threads Page -->
+        <div id="threadsPage" class="page" style="display: none;">
+            <h2 class="mb-4"><i class="fas fa-comments me-2"></i> Threads</h2>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Active Threads</h5>
+                        <div>
+                            <button class="btn btn-sm btn-primary" id="refreshThreads">
+                                <i class="fas fa-sync"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Participants</th>
+                                    <th>Last Activity</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="threadsTable">
+                                <!-- Threads will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Users Page -->
+        <div id="usersPage" class="page" style="display: none;">
+            <h2 class="mb-4"><i class="fas fa-users me-2"></i> Users</h2>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">User Management</h5>
+                        <div class="input-group" style="width: 300px;">
+                            <input type="text" class="form-control" placeholder="Search users..." id="userSearch">
+                            <button class="btn btn-outline-primary" type="button">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover">
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Commands</th>
+                                    <th>Last Seen</th>
+                                    <th>Role</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTable">
+                                <!-- Users will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Fun System Page -->
+        <div id="funPage" class="page" style="display: none;">
+            <h2 class="mb-4"><i class="fas fa-gamepad me-2"></i> Fun System</h2>
+            
+            <div class="row mb-4">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Active Fun Loops</h5>
+                                <button class="btn btn-sm btn-danger" id="stopAllFuns">
+                                    <i class="fas fa-stop-circle me-1"></i> Stop All
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="activeFunsList">
+                                <!-- Active funs will be loaded here -->
+                                <div class="text-center text-muted py-4">
+                                    <i class="fas fa-gamepad fa-2x"></i>
+                                    <p class="mt-2">No active fun loops</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Start New Fun</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="startFunForm">
+                                <div class="mb-3">
+                                    <label class="form-label">Fun Type</label>
+                                    <select class="form-select" id="funTypeSelect">
+                                        <option value="chor">Chor</option>
+                                        <option value="murgi">Murgi</option>
+                                        <option value="abal">Abal</option>
+                                        <option value="senior">Senior</option>
+                                        <option value="cow">Cow</option>
+                                        <option value="goat">Goat</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Thread ID</label>
+                                    <input type="text" class="form-control" id="funThreadId" 
+                                           placeholder="Enter thread ID or select from list">
+                                    <div class="form-text">
+                                        <a href="#" id="selectThreadBtn">Select from active threads</a>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-play me-2"></i> Start Fun
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Fun Types</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="funTypesList">
+                                <!-- Fun types will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Commands Page -->
+        <div id="commandsPage" class="page" style="display: none;">
+            <h2 class="mb-4"><i class="fas fa-terminal me-2"></i> Commands</h2>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Execute Command</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="executeCommandForm">
+                                <div class="mb-3">
+                                    <label class="form-label">Command</label>
+                                    <select class="form-select" id="commandSelect">
+                                        <option value="">Select a command</option>
+                                        <!-- Commands will be populated by JavaScript -->
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Arguments</label>
+                                    <input type="text" class="form-control" id="commandArgs" 
+                                           placeholder="Enter arguments separated by space">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Thread ID</label>
+                                    <input type="text" class="form-control" id="commandThreadId" 
+                                           placeholder="Thread ID where to execute">
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-play me-2"></i> Execute
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Available Commands</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <h6><i class="fas fa-user me-2"></i> User Commands</h6>
+                                    <div id="userCommands">
+                                        <!-- User commands will be loaded here -->
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <h6><i class="fas fa-user-shield me-2"></i> Admin Commands</h6>
+                                    <div id="adminCommands">
+                                        <!-- Admin commands will be loaded here -->
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <h6><i class="fas fa-crown me-2"></i> Owner Commands</h6>
+                                    <div id="ownerCommands">
+                                        <!-- Owner commands will be loaded here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Command History</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="commandHistory">
+                                <!-- Command history will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Other pages would continue similarly -->
+        
+    </div>
+
+    <!-- Modals -->
+    <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content bg-dark">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-sign-in-alt me-2"></i> Login</h5>
+                </div>
+                <div class="modal-body">
+                    <form id="loginForm">
+                        <div class="mb-3">
+                            <label class="form-label">Facebook User ID</label>
+                            <input type="text" class="form-control" id="loginUid" 
+                                   placeholder="Enter your Facebook UID" required>
+                            <div class="form-text">
+                                You must be an admin or owner to login
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Password</label>
+                            <input type="password" class="form-control" id="loginPassword" 
+                                   placeholder="Enter password (if set)" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-sign-in-alt me-2"></i> Login
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal fade" id="messageModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content bg-dark">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="messageModalTitle">Message</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="messageModalBody">
+                    <!-- Message content will be inserted here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Configuration
+        const API_BASE_URL = window.location.origin + '/api';
+        let authToken = localStorage.getItem('bot_auth_token');
+        let userData = null;
+        let ws = null;
+        let activityChart = null;
+        
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuth();
+            setupEventListeners();
+            setupWebSocket();
+        });
+        
+        // Authentication
+        async function checkAuth() {
+            if (!authToken) {
+                showLoginModal();
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/status`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Invalid token');
+                }
+                
+                // Load user data
+                loadUserData();
+                showPage('dashboard');
+                loadDashboardData();
+                
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                localStorage.removeItem('bot_auth_token');
+                authToken = null;
+                showLoginModal();
+            }
+        }
+        
+        async function loadUserData() {
+            try {
+                // Decode JWT to get user info
+                const payload = JSON.parse(atob(authToken.split('.')[1]));
+                userData = payload;
+                
+                // Update UI
+                document.getElementById('userName').textContent = userData.name || 'User';
+                document.getElementById('userRole').textContent = userData.isOwner ? 'Owner' : 'Admin';
+                document.getElementById('userRole').className = userData.isOwner ? 
+                    'badge bg-warning' : 'badge bg-primary';
+                
+                // Show/hide elements based on role
+                if (!userData.isOwner) {
+                    document.querySelectorAll('.owner-only').forEach(el => {
+                        el.style.display = 'none';
+                    });
+                }
+                
+            } catch (error) {
+                console.error('Error loading user data:', error);
+            }
+        }
+        
+        function showLoginModal() {
+            const modal = new bootstrap.Modal(document.getElementById('loginModal'));
+            modal.show();
+        }
+        
+        // Event Listeners
+        function setupEventListeners() {
+            // Login form
+            document.getElementById('loginForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const uid = document.getElementById('loginUid').value;
+                const password = document.getElementById('loginPassword').value;
+                
+                try {
+                    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ uid, password })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Login failed');
+                    }
+                    
+                    const data = await response.json();
+                    authToken = data.token;
+                    localStorage.setItem('bot_auth_token', authToken);
+                    
+                    // Close modal and reload
+                    bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
+                    location.reload();
+                    
+                } catch (error) {
+                    showMessage('Login Failed', 'Invalid credentials or insufficient permissions.');
+                }
+            });
+            
+            // Logout
+            document.getElementById('logoutBtn').addEventListener('click', () => {
+                localStorage.removeItem('bot_auth_token');
+                location.reload();
+            });
+            
+            // Navigation
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const page = link.getAttribute('data-page');
+                    showPage(page);
+                    
+                    // Update active state
+                    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                    link.classList.add('active');
+                });
+            });
+            
+            // Quick actions
+            document.getElementById('quickRestart').addEventListener('click', restartBot);
+            document.getElementById('quickBackup').addEventListener('click', createBackup);
+            document.getElementById('quickRefresh').addEventListener('click', loadDashboardData);
+            document.getElementById('quickStopFuns').addEventListener('click', stopAllFuns);
+            
+            // Forms
+            document.getElementById('startFunForm')?.addEventListener('submit', startFun);
+            document.getElementById('executeCommandForm')?.addEventListener('submit', executeCommand);
+            
+            // Other event listeners would be added here
+        }
+        
+        // Page Management
+        function showPage(pageName) {
+            // Hide all pages
+            document.querySelectorAll('.page').forEach(page => {
+                page.style.display = 'none';
+            });
+            
+            // Show requested page
+            document.getElementById(`${pageName}Page`).style.display = 'block';
+            
+            // Load page-specific data
+            switch(pageName) {
+                case 'dashboard':
+                    loadDashboardData();
+                    break;
+                case 'threads':
+                    loadThreads();
+                    break;
+                case 'users':
+                    loadUsers();
+                    break;
+                case 'fun':
+                    loadFunData();
+                    break;
+                case 'commands':
+                    loadCommands();
+                    break;
+                // Add other pages
+            }
+        }
+        
+        // Dashboard Functions
+        async function loadDashboardData() {
+            try {
+                const [status, stats, metrics] = await Promise.all([
+                    fetchApi('/status'),
+                    fetchApi('/stats'),
+                    fetchApi('/metrics')
+                ]);
+                
+                updateDashboardUI(status, stats);
+                
+                // Update status indicator
+                const statusIndicator = document.getElementById('botStatus');
+                const statusText = document.getElementById('statusText');
+                
+                if (status.bot.running) {
+                    statusIndicator.className = 'status-indicator status-online';
+                    statusText.textContent = 'Online';
+                } else {
+                    statusIndicator.className = 'status-indicator status-offline';
+                    statusText.textContent = 'Offline';
+                }
+                
+                // Update uptime
+                document.getElementById('uptime').textContent = 
+                    `Uptime: ${formatUptime(status.bot.uptime)}`;
+                
+                // Update quick actions
+                document.getElementById('quickStopFuns').style.display = 
+                    status.connections.activeFuns > 0 ? 'block' : 'none';
+                
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+            }
+        }
+        
+        function updateDashboardUI(status, stats) {
+            // Update stats cards
+            document.getElementById('totalUsers').textContent = 
+                stats.commands?.uniqueUsers || 0;
+            document.getElementById('activeThreads').textContent = 
+                status.connections?.activeThreads || 0;
+            document.getElementById('commandsToday').textContent = 
+                stats.commands?.totalCommands || 0;
+            document.getElementById('activeFuns').textContent = 
+                status.connections?.activeFuns || 0;
+            
+            // Update system status
+            const memory = status.bot.memory;
+            if (memory) {
+                const usedMB = (memory.heapUsed / 1024 / 1024).toFixed(1);
+                const totalMB = (memory.heapTotal / 1024 / 1024).toFixed(1);
+                const percent = (memory.heapUsed / memory.heapTotal * 100).toFixed(1);
+                
+                document.getElementById('memoryUsage').textContent = `${usedMB} MB / ${totalMB} MB`;
+                document.getElementById('memoryBar').style.width = `${percent}%`;
+            }
+            
+            // Update cache stats
+            if (stats.cache) {
+                const hitRate = (stats.cache.hitRate * 100).toFixed(1);
+                document.getElementById('cacheHitRate').textContent = `${hitRate}%`;
+                document.getElementById('cacheBar').style.width = `${hitRate}%`;
+            }
+            
+            // Load recent commands
+            loadRecentCommands();
+            
+            // Load recent errors
+            loadRecentErrors();
+        }
+        
+        // API Helper Functions
+        async function fetchApi(endpoint, options = {}) {
+            const url = API_BASE_URL + endpoint;
+            
+            const defaultOptions = {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            };
+            
+            const finalOptions = { ...defaultOptions, ...options };
+            
+            const response = await fetch(url, finalOptions);
+            
+            if (!response.ok) {
+                if (response.status === 401) {
+                    // Token expired
+                    localStorage.removeItem('bot_auth_token');
+                    showLoginModal();
+                    throw new Error('Authentication required');
+                }
+                throw new Error(`API error: ${response.status}`);
+            }
+            
+            return await response.json();
+        }
+        
+        async function postApi(endpoint, data) {
+            return fetchApi(endpoint, {
+                method: 'POST',
+                body: JSON.stringify(data)
+            });
+        }
+        
+        // WebSocket
+        function setupWebSocket() {
+            if (!authToken) return;
+            
+            const wsUrl = `ws://${window.location.host}`;
+            ws = new WebSocket(wsUrl, authToken);
+            
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                
+                // Subscribe to updates
+                ws.send(JSON.stringify({
+                    type: 'subscribe',
+                    channel: 'bot_status'
+                }));
+                
+                ws.send(JSON.stringify({
+                    type: 'subscribe',
+                    channel: 'message_sent'
+                }));
+                
+                ws.send(JSON.stringify({
+                    type: 'subscribe',
+                    channel: 'fun_updates'
+                }));
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
+            
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                // Attempt to reconnect after 5 seconds
+                setTimeout(setupWebSocket, 5000);
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        }
+        
+        function handleWebSocketMessage(data) {
+            switch(data.type) {
+                case 'bot_status':
+                    updateBotStatus(data.data);
+                    break;
+                    
+                case 'message_sent':
+                    addRecentCommand(data.data);
+                    break;
+                    
+                case 'fun_started':
+                case 'fun_stopped':
+                    updateFunStatus(data.data);
+                    break;
+                    
+                case 'initial':
+                    // Initial connection data
+                    break;
+                    
+                default:
+                    console.log('Unknown WebSocket message:', data);
+            }
+        }
+        
+        // Utility Functions
+        function formatUptime(seconds) {
+            const days = Math.floor(seconds / 86400);
+            const hours = Math.floor((seconds % 86400) / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            
+            if (days > 0) {
+                return `${days}d ${hours}h`;
+            } else if (hours > 0) {
+                return `${hours}h ${minutes}m`;
+            } else {
+                return `${minutes}m`;
+            }
+        }
+        
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString();
+        }
+        
+        function showMessage(title, message) {
+            document.getElementById('messageModalTitle').textContent = title;
+            document.getElementById('messageModalBody').textContent = message;
+            
+            const modal = new bootstrap.Modal(document.getElementById('messageModal'));
+            modal.show();
+        }
+        
+        // Bot Control Functions
+        async function restartBot() {
+            if (!confirm('Are you sure you want to restart the bot?')) return;
+            
+            try {
+                const result = await postApi('/system/restart', {});
+                showMessage('Success', result.message);
+            } catch (error) {
+                showMessage('Error', 'Failed to restart bot');
+            }
+        }
+        
+        async function createBackup() {
+            try {
+                const result = await postApi('/system/backup', {});
+                showMessage('Success', result.message);
+            } catch (error) {
+                showMessage('Error', 'Failed to create backup');
+            }
+        }
+        
+        async function stopAllFuns() {
+            if (!confirm('Stop all active fun loops?')) return;
+            
+            try {
+                // This would be an API endpoint to stop all funs
+                const result = await postApi('/fun/stop-all', {});
+                showMessage('Success', result.message);
+            } catch (error) {
+                showMessage('Error', 'Failed to stop fun loops');
+            }
+        }
+        
+        // Fun System Functions
+        async function loadFunData() {
+            try {
+                const [activeFuns, funTypes] = await Promise.all([
+                    fetchApi('/fun/active'),
+                    fetchApi('/fun/types')
+                ]);
+                
+                updateActiveFunsList(activeFuns.active);
+                updateFunTypesList(funTypes.details);
+                
+            } catch (error) {
+                console.error('Error loading fun data:', error);
+            }
+        }
+        
+        async function startFun(e) {
+            e.preventDefault();
+            
+            const type = document.getElementById('funTypeSelect').value;
+            const threadId = document.getElementById('funThreadId').value.trim();
+            
+            if (!threadId) {
+                showMessage('Error', 'Please enter a thread ID');
+                return;
+            }
+            
+            try {
+                const result = await postApi('/fun/start', {
+                    type,
+                    threadId
+                });
+                
+                showMessage(result.success ? 'Success' : 'Error', result.message || result.error);
+                
+                if (result.success) {
+                    // Clear form
+                    e.target.reset();
+                    // Refresh fun data
+                    loadFunData();
+                }
+                
+            } catch (error) {
+                showMessage('Error', 'Failed to start fun');
+            }
+        }
+        
+        // Command Execution
+        async function loadCommands() {
+            try {
+                const commands = await fetchApi('/commands');
+                updateCommandsUI(commands);
+                
+            } catch (error) {
+                console.error('Error loading commands:', error);
+            }
+        }
+        
+        async function executeCommand(e) {
+            e.preventDefault();
+            
+            const command = document.getElementById('commandSelect').value;
+            const args = document.getElementById('commandArgs').value.split(' ').filter(arg => arg);
+            const threadId = document.getElementById('commandThreadId').value.trim();
+            
+            if (!command || !threadId) {
+                showMessage('Error', 'Please select a command and enter thread ID');
+                return;
+            }
+            
+            try {
+                const result = await postApi('/commands/execute', {
+                    command,
+                    args,
+                    threadId
+                });
+                
+                showMessage('Command Executed', result.result || 'Command executed successfully');
+                
+                // Clear form
+                e.target.reset();
+                
+            } catch (error) {
+                showMessage('Error', 'Failed to execute command');
+            }
+        }
+        
+        // UI Update Functions
+        function updateActiveFunsList(funs) {
+            const container = document.getElementById('activeFunsList');
+            
+            if (!funs || funs.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-gamepad fa-2x"></i>
+                        <p class="mt-2">No active fun loops</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = funs.map(fun => `
+                <div class="card mb-2">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="fun-tag">${fun.type}</span>
+                                <span class="text-muted ms-2">Thread: ${fun.threadId.substring(0, 8)}...</span>
+                            </div>
+                            <div>
+                                <span class="text-muted me-3">${fun.runningFor}s</span>
+                                <button class="btn btn-sm btn-danger stop-fun-btn" data-thread="${fun.threadId}">
+                                    <i class="fas fa-stop"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            // Add event listeners to stop buttons
+            container.querySelectorAll('.stop-fun-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const threadId = btn.getAttribute('data-thread');
+                    try {
+                        const result = await postApi('/fun/stop', { threadId });
+                        if (result.success) {
+                            loadFunData();
+                        }
+                    } catch (error) {
+                        showMessage('Error', 'Failed to stop fun');
+                    }
+                });
+            });
+        }
+        
+        function updateBotStatus(data) {
+            // Update status indicator
+            const indicator = document.getElementById('botStatus');
+            const text = document.getElementById('statusText');
+            
+            if (data.status === 'running') {
+                indicator.className = 'status-indicator status-online';
+                text.textContent = 'Online';
+            } else {
+                indicator.className = 'status-indicator status-offline';
+                text.textContent = 'Offline';
+            }
+        }
+        
+        // These functions would be implemented similarly for other pages
+        
+        function addRecentCommand(data) {
+            // Add to recent commands list
+            const container = document.getElementById('recentCommands');
+            
+            const commandElement = document.createElement('div');
+            commandElement.className = 'list-group-item bg-transparent text-light border-secondary';
+            commandElement.innerHTML = `
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <small class="text-primary">${data.senderId}</small>
+                        <div>${data.message}...</div>
+                    </div>
+                    <small class="text-muted">${formatDate(data.timestamp)}</small>
+                </div>
+            `;
+            
+            // Add to top
+            container.insertBefore(commandElement, container.firstChild);
+            
+            // Limit to 10 items
+            if (container.children.length > 10) {
+                container.removeChild(container.lastChild);
+            }
+        }
+        
+        // Initialize Chart
+        function initActivityChart() {
+            const ctx = document.getElementById('activityChart').getContext('2d');
+            
+            activityChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Commands per hour',
+                        data: [],
+                        borderColor: 'rgba(74, 144, 226, 1)',
+                        backgroundColor: 'rgba(74, 144, 226, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#f0f0f0'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#aaa'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#aaa'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Call initialization
+        initActivityChart();
+        
+    </script>
+</body>
+</html>
