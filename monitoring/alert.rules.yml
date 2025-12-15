@@ -1,1 +1,46 @@
+groups:
+  - name: messenger-bot-alerts
+    rules:
+      # High memory usage alert
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes / 1024 / 1024 > 400
+        for: 5m
+        labels:
+          severity: warning
+          service: messenger-bot
+        annotations:
+          summary: "High memory usage detected"
+          description: "Bot memory usage is {{ $value }}MB (threshold: 400MB)"
 
+      # Bot down alert
+      - alert: BotDown
+        expr: up{job="messenger-bot"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: messenger-bot
+        annotations:
+          summary: "Bot is down"
+          description: "The messenger bot has been down for more than 1 minute"
+
+      # High error rate alert
+      - alert: HighErrorRate
+        expr: rate(bot_errors_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          service: messenger-bot
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} per minute"
+
+      # No messages processed alert
+      - alert: NoMessagesProcessed
+        expr: rate(bot_messages_processed_total[10m]) == 0
+        for: 5m
+        labels:
+          severity: warning
+          service: messenger-bot
+        annotations:
+          summary: "No messages being processed"
+          description: "Bot has not processed any messages in the last 10 minutes"
