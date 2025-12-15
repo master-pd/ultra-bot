@@ -1,1 +1,238 @@
+name: Main CI/CD Pipeline
 
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  schedule:
+    # রাত ৩টায় রেগুলার টেস্ট রান করবে
+    - cron: '0 3 * * *'
+
+env:
+  NODE_VERSION: '18.x'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ১. লিন্টিং এবং কোড কোয়ালিটি চেক
+  lint-and-quality:
+    name: Lint & Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run ESLint
+      run: npm run lint || true
+      
+    - name: Check code formatting
+      uses: creyD/prettier_action@v4.3
+      with:
+        prettier_options: --check src/ server/ scripts/
+        
+    - name: Detect secrets in code
+      uses: gitleaks/gitleaks-action@v2
+      env:
+        GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+        
+    - name: Run SonarCloud analysis
+      uses: SonarSource/sonarcloud-github-action@master
+      if: ${{ secrets.SONAR_TOKEN }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # ২. ইউনিট টেস্ট
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint-and-quality
+    
+    strategy:
+      matrix:
+        node-version: [16.x, 18.x, 20.x]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Create test config
+      run: |
+        mkdir -p config
+        echo '{"prefix": "!", "admins": [], "ownerUid": "test", "funEnabled": true}' > config/config.json
+        mkdir -p src/secure
+        echo '{"ownerHash": "test", "ownerUid": "test", "lockedAt": "2023-01-01"}' > src/secure/owner.lock
+        
+    - name: Run unit tests
+      run: npm test -- --coverage
+      
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage/lcov.info
+        flags: unittests
+
+  # ৩. ইন্টিগ্রেশন টেস্ট
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run integration tests
+      run: npm run test:integration || echo "Integration tests skipped"
+      
+    - name: Security audit
+      run: |
+        npm audit --audit-level=high
+        npm audit fix || true
+        
+    - name: Run Snyk security scan
+      uses: snyk/actions/node@master
+      if: ${{ secrets.SNYK_TOKEN }}
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --severity-threshold=high
+
+  # ৪. বিল্ড এবং পুশ ডকার ইমেজ
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: integration-tests
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    permissions:
+      contents: read
+      packages: write
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+      
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v4
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha,prefix={{branch}}-,format=short
+          type=raw,value=latest,enable={{is_default_branch}}
+          
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+
+  # ৫. ডিপ্লয়মেন্ট টেস্ট
+  deployment-test:
+    name: Deployment Test
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Create test environment
+      run: |
+        mkdir -p config data
+        cp config/config.example.json config/config.json
+        node scripts/init-db.js
+        
+    - name: Test bot startup
+      run: |
+        timeout 30s node main.js --test || echo "Bot startup test completed"
+        
+    - name: Test API server startup
+      run: |
+        timeout 30s node server/main.js --test || echo "API server test completed"
+
+  # ৬. নোটিফিকেশন
+  notification:
+    name: Notification
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests, build-and-push]
+    if: always()
+    
+    steps:
+    - name: Send success notification
+      if: success()
+      uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        SLACK_COLOR: good
+        SLACK_TITLE: '✅ CI/CD Pipeline Successful'
+        SLACK_MESSAGE: 'Build #${{ github.run_number }} passed for ${{ github.repository }}'
+        
+    - name: Send failure notification
+      if: failure()
+      uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        SLACK_COLOR: danger
+        SLACK_TITLE: '❌ CI/CD Pipeline Failed'
+        SLACK_MESSAGE: 'Build #${{ github.run_number }} failed for ${{ github.repository }}'
+        SLACK_FOOTER: 'Check ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'

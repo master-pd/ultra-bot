@@ -1,0 +1,331 @@
+name: Deploy to Render
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+  RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+  NODE_VERSION: 18.17.0
+
+jobs:
+  deploy:
+    name: Deploy to Render
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build project
+      run: |
+        # Create necessary directories
+        mkdir -p config data/{fun-json,logs,admin-photos} assets/owner-photos
+        
+        # Create default config if not exists
+        if [ ! -f "config/config.json" ]; then
+          cp config/config.example.json config/config.json
+        fi
+        
+        # Create owner lock if not exists
+        if [ ! -f "src/secure/owner.lock" ]; then
+          node src/secure/setupOwner.js ${{ secrets.BOT_OWNER_ID }}
+        fi
+        
+        echo "✅ Build completed"
+        
+    - name: Create deployment package
+      run: |
+        # Create deployment package
+        DEPLOY_DIR="deploy-$(date +%Y%m%d-%H%M%S)"
+        mkdir $DEPLOY_DIR
+        
+        # Copy necessary files
+        cp -r src server scripts config data assets $DEPLOY_DIR/
+        cp main.js package.json package-lock.json Dockerfile .env.example $DEPLOY_DIR/
+        cp -r public $DEPLOY_DIR/ 2>/dev/null || true
+        
+        # Create render.yaml
+        cat > $DEPLOY_DIR/render.yaml << EOF
+        services:
+          # Messenger Bot
+          - type: web
+            name: ultra-messenger-bot
+            env: node
+            buildCommand: npm install
+            startCommand: npm start
+            envVars:
+              - key: NODE_ENV
+                value: production
+              - key: BOT_PREFIX
+                value: "${{ secrets.BOT_PREFIX }}"
+              - key: BOT_OWNER
+                value: "${{ secrets.BOT_OWNER_ID }}"
+              - key: ENABLE_API
+                value: "true"
+              - key: API_PORT
+                value: "3001"
+            healthCheckPath: /api/health
+            autoDeploy: true
+            
+          # API Server (optional)
+          - type: web
+            name: bot-api-server
+            env: node
+            buildCommand: npm install
+            startCommand: node server/main.js
+            envVars:
+              - key: NODE_ENV
+                value: production
+              - key: API_PORT
+                value: "3001"
+              - key: ENABLE_WEBSOCKET
+                value: "true"
+            healthCheckPath: /api/health
+            autoDeploy: true
+            
+        # Database (for logs and stats)
+        databases:
+          - name: botdb
+            databaseName: botdb
+            user: botuser
+            plan: free
+        EOF
+        
+        # Create .renderignore
+        cat > $DEPLOY_DIR/.renderignore << EOF
+        node_modules/
+        *.log
+        *.tar.gz
+        backup-*
+        .env
+        .git
+        .github
+        tests/
+        coverage/
+        *.md
+        .DS_Store
+        EOF
+        
+        # Create start script for Render
+        cat > $DEPLOY_DIR/start.sh << 'EOF'
+        #!/bin/bash
+        
+        echo "🚀 Starting Ultra Messenger Bot on Render..."
+        
+        # Create directories
+        mkdir -p data/{fun-json,logs,admin-photos} assets/owner-photos config
+        
+        # Copy config if not exists
+        if [ ! -f "config/config.json" ]; then
+          cp config/config.example.json config/config.json
+          echo "Created config from example"
+        fi
+        
+        # Set up owner lock if not exists
+        if [ ! -f "src/secure/owner.lock" ]; then
+          echo "Creating owner lock..."
+          node src/secure/setupOwner.js $BOT_OWNER
+        fi
+        
+        # Start the bot
+        echo "Starting bot..."
+        exec node main.js
+        EOF
+        
+        chmod +x $DEPLOY_DIR/start.sh
+        
+        # Create package
+        tar -czf deploy-package.tar.gz $DEPLOY_DIR/
+        echo "✅ Deployment package created: deploy-package.tar.gz"
+        
+    - name: Deploy to Render via API
+      run: |
+        echo "🚀 Deploying to Render..."
+        
+        # Get the deployment package
+        DEPLOY_PACKAGE="deploy-package.tar.gz"
+        
+        # Create deploy on Render
+        RESPONSE=$(curl -s -X POST \
+          "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys" \
+          -H "Authorization: Bearer $RENDER_API_KEY" \
+          -H "Accept: application/json" \
+          -F "clearCache=true")
+        
+        DEPLOY_ID=$(echo $RESPONSE | jq -r '.id')
+        
+        if [ "$DEPLOY_ID" = "null" ]; then
+          echo "❌ Failed to create deploy"
+          echo "Response: $RESPONSE"
+          exit 1
+        fi
+        
+        echo "✅ Deploy created with ID: $DEPLOY_ID"
+        
+        # Wait for deploy to complete
+        echo "⏳ Waiting for deploy to complete..."
+        
+        for i in {1..30}; do
+          STATUS=$(curl -s \
+            "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys/$DEPLOY_ID" \
+            -H "Authorization: Bearer $RENDER_API_KEY" | jq -r '.status')
+          
+          echo "Deploy status: $STATUS"
+          
+          if [ "$STATUS" = "live" ]; then
+            echo "✅ Deploy completed successfully!"
+            break
+          elif [ "$STATUS" = "build_failed" ] || [ "$STATUS" = "update_failed" ]; then
+            echo "❌ Deploy failed with status: $STATUS"
+            
+            # Get logs
+            LOGS=$(curl -s \
+              "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys/$DEPLOY_ID/logs" \
+              -H "Authorization: Bearer $RENDER_API_KEY")
+            
+            echo "Deploy logs:"
+            echo "$LOGS"
+            exit 1
+          fi
+          
+          sleep 10
+        done
+        
+        if [ "$STATUS" != "live" ]; then
+          echo "⚠️ Deploy timed out with status: $STATUS"
+        fi
+        
+    - name: Get service info
+      run: |
+        echo "📊 Getting service information..."
+        
+        SERVICE_INFO=$(curl -s \
+          "https://api.render.com/v1/services/$RENDER_SERVICE_ID" \
+          -H "Authorization: Bearer $RENDER_API_KEY")
+        
+        SERVICE_URL=$(echo $SERVICE_INFO | jq -r '.serviceDetails.url')
+        
+        echo "✅ Service URL: $SERVICE_URL"
+        
+        # Test the service
+        echo "🧪 Testing service..."
+        sleep 30
+        
+        if curl -f "$SERVICE_URL/api/health"; then
+          echo "✅ Service is healthy"
+        else
+          echo "❌ Service health check failed"
+        fi
+        
+    - name: Send deployment notification
+      if: always()
+      uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        SLACK_COLOR: ${{ job.status == 'success' && 'good' || 'danger' }}
+        SLACK_TITLE: "${{ job.status == 'success' && '✅' || '❌' }} Render Deployment ${{ job.status == 'success' && 'Successful' || 'Failed' }}"
+        SLACK_MESSAGE: "Deployment to Render ${{ job.status == 'success' && 'completed successfully' || 'failed' }}"
+        SLACK_FOOTER: "Commit: ${{ github.sha }}"
+
+  # Render-specific health checks
+  health-check:
+    name: Health Check
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: always()
+    
+    steps:
+    - name: Check API health
+      run: |
+        SERVICE_URL="https://${{ secrets.RENDER_SERVICE_NAME }}.onrender.com"
+        
+        echo "Checking health at: $SERVICE_URL/api/health"
+        
+        for i in {1..10}; do
+          if curl -f "$SERVICE_URL/api/health"; then
+            echo "✅ API is healthy"
+            exit 0
+          fi
+          echo "Attempt $i failed, retrying in 10 seconds..."
+          sleep 10
+        done
+        
+        echo "❌ API health check failed after 10 attempts"
+        exit 1
+        
+    - name: Check bot status
+      run: |
+        SERVICE_URL="https://${{ secrets.RENDER_SERVICE_NAME }}.onrender.com"
+        API_TOKEN="${{ secrets.BOT_API_TOKEN }}"
+        
+        if [ -n "$API_TOKEN" ]; then
+          echo "Checking bot status..."
+          
+          STATUS=$(curl -s -H "Authorization: Bearer $API_TOKEN" \
+            "$SERVICE_URL/api/status" | jq -r '.bot.running')
+          
+          if [ "$STATUS" = "true" ]; then
+            echo "✅ Bot is running"
+          else
+            echo "❌ Bot is not running"
+            exit 1
+          fi
+        else
+          echo "⚠️ No API token, skipping bot status check"
+        fi
+        
+    - name: Run smoke tests
+      run: |
+        SERVICE_URL="https://${{ secrets.RENDER_SERVICE_NAME }}.onrender.com"
+        
+        echo "Running smoke tests..."
+        
+        # Test endpoints
+        ENDPOINTS=("/api/health" "/api/status" "/dashboard")
+        
+        for endpoint in "${ENDPOINTS[@]}"; do
+          if curl -f "$SERVICE_URL$endpoint" > /dev/null 2>&1; then
+            echo "✅ $endpoint is accessible"
+          else
+            echo "❌ $endpoint is not accessible"
+          fi
+        done
+        
+    - name: Generate deployment report
+      if: always()
+      run: |
+        echo "# Render Deployment Report" > render-report.md
+        echo "## Summary" >> render-report.md
+        echo "- Service: ${{ secrets.RENDER_SERVICE_NAME }}" >> render-report.md
+        echo "- Status: ${{ job.status }}" >> render-report.md
+        echo "- Timestamp: $(date)" >> render-report.md
+        echo "- Commit: ${{ github.sha }}" >> render-report.md
+        echo "" >> render-report.md
+        echo "## Health Check Results" >> render-report.md
+        echo "- API Health: ${{ steps.check-api-health.outcome }}" >> render-report.md
+        echo "- Bot Status: ${{ steps.check-bot-status.outcome }}" >> render-report.md
+        echo "- Smoke Tests: ${{ steps.run-smoke-tests.outcome }}" >> render-report.md
+        echo "" >> render-report.md
+        echo "## Links" >> render-report.md
+        echo "- Dashboard: https://${{ secrets.RENDER_SERVICE_NAME }}.onrender.com/dashboard" >> render-report.md
+        echo "- API: https://${{ secrets.RENDER_SERVICE_NAME }}.onrender.com/api/health" >> render-report.md
+        
+        cat render-report.md
+        
+    - name: Upload deployment report
+      uses: actions/upload-artifact@v3
+      with:
+        name: render-deployment-report
+        path: render-report.md

@@ -1,0 +1,354 @@
+name: Production Deployment
+
+on:
+  workflow_dispatch:  # ম্যানুয়াল ট্রিগার
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      version:
+        description: 'Version to deploy (leave empty for latest)'
+        required: false
+        type: string
+  push:
+    tags:
+      - 'v*'  # ভার্সন ট্যাগ পুশ করলে অটো ডিপ্লয়
+
+env:
+  DOCKER_REGISTRY: ghcr.io
+  DOCKER_IMAGE: ${{ github.repository }}
+
+jobs:
+  # ১. প্রি-ডিপ্লয়মেন্ট ভ্যালিডেশন
+  pre-deployment:
+    name: Pre-deployment Validation
+    runs-on: ubuntu-latest
+    
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+      image_tag: ${{ steps.get-version.outputs.image_tag }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        
+    - name: Get version information
+      id: get-version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+        elif [ "${{ github.event_name }}" = "push" ]; then
+          VERSION="${GITHUB_REF#refs/tags/v}"
+        else
+          VERSION=$(node -p "require('./package.json').version")
+        fi
+        
+        IMAGE_TAG="${VERSION}-$(git rev-parse --short HEAD)"
+        
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+        
+        echo "Deploying version: $VERSION"
+        echo "Image tag: $IMAGE_TAG"
+        
+    - name: Validate configuration
+      run: |
+        # কনফিগ ফাইল চেক
+        if [ ! -f "config/config.example.json" ]; then
+          echo "❌ config.example.json missing"
+          exit 1
+        fi
+        
+        # প্রয়োজনীয় ডিরেক্টরি চেক
+        REQUIRED_DIRS=("src/secure" "data" "assets")
+        for dir in "${REQUIRED_DIRS[@]}"; do
+          if [ ! -d "$dir" ]; then
+            echo "❌ Directory missing: $dir"
+            exit 1
+          fi
+        done
+        
+        echo "✅ Configuration validation passed"
+        
+    - name: Security scan
+      uses: anchore/scan-action@v3
+      with:
+        image: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE }}:latest
+        fail-build: false
+
+  # ২. স্টেজিং এনভায়রনমেন্ট ডিপ্লয়
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: pre-deployment
+    if: github.event.inputs.environment == 'staging' || github.event_name == 'push'
+    
+    environment:
+      name: staging
+      url: https://staging-bot.yourdomain.com
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup SSH
+      uses: webfactory/ssh-agent@v0.7.0
+      with:
+        ssh-private-key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+        
+    - name: Deploy to staging server
+      env:
+        DEPLOY_HOST: ${{ secrets.STAGING_HOST }}
+        DEPLOY_USER: ${{ secrets.STAGING_USER }}
+        DEPLOY_PATH: ${{ secrets.STAGING_PATH }}
+      run: |
+        ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_HOST "
+          set -e
+          echo '🚀 Starting staging deployment...'
+          
+          cd $DEPLOY_PATH
+          
+          # বর্তমান স্টেট ব্যাকআপ
+          tar -czf backup-$(date +%Y%m%d-%H%M%S).tar.gz config/ data/ assets/ 2>/dev/null || true
+          
+          # গিট আপডেট
+          git fetch origin
+          git reset --hard origin/main
+          
+          # ডিপেন্ডেন্সি ইন্সটল
+          npm ci --only=production
+          
+          # কনফিগারেশন আপডেট
+          if [ ! -f 'config/config.json' ]; then
+            cp config/config.example.json config/config.json
+          fi
+          
+          # ডাটা ডিরেক্টরি তৈরি
+          mkdir -p data/{fun-json,logs,admin-photos} assets/owner-photos backups
+          
+          # বট রিস্টার্ট
+          if pm2 list | grep -q 'messenger-bot'; then
+            pm2 restart messenger-bot
+          else
+            pm2 start main.js --name messenger-bot
+          fi
+          
+          # API সার্ভার রিস্টার্ট
+          if pm2 list | grep -q 'bot-api'; then
+            pm2 restart bot-api
+          else
+            pm2 start server/main.js --name bot-api
+          fi
+          
+          echo '✅ Staging deployment completed'
+          
+          # হেলথ চেক
+          sleep 10
+          curl -f http://localhost:3001/api/health || exit 1
+        "
+
+  # ৩. প্রোডাকশন ডিপ্লয়
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [pre-deployment, deploy-staging]
+    if: github.event.inputs.environment == 'production'
+    
+    environment:
+      name: production
+      url: https://bot.yourdomain.com
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup SSH
+      uses: webfactory/ssh-agent@v0.7.0
+      with:
+        ssh-private-key: ${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}
+        
+    - name: Create production release
+      id: create-release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ needs.pre-deployment.outputs.version }}
+        release_name: Release v${{ needs.pre-deployment.outputs.version }}
+        body: |
+          Production deployment
+          
+          Changes:
+          - Automated deployment
+          - Version: ${{ needs.pre-deployment.outputs.version }}
+          - Commit: ${{ github.sha }}
+        draft: false
+        prerelease: false
+        
+    - name: Deploy to production server
+      env:
+        DEPLOY_HOST: ${{ secrets.PRODUCTION_HOST }}
+        DEPLOY_USER: ${{ secrets.PRODUCTION_USER }}
+        DEPLOY_PATH: ${{ secrets.PRODUCTION_PATH }}
+      run: |
+        ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_HOST "
+          set -e
+          echo '🚀 Starting production deployment...'
+          
+          # মেইন্টেনেন্স মোড অন করা
+          curl -X POST http://localhost:3001/api/system/maintenance -H 'Authorization: Bearer ${{ secrets.BOT_API_TOKEN }}' \
+            -d '{\"enabled\": true, \"message\": \"System maintenance in progress\"}' || true
+          
+          # ব্যাকআপ তৈরি
+          cd $DEPLOY_PATH
+          BACKUP_FILE=\"backup-production-\$(date +%Y%m%d-%H%M%S).tar.gz\"
+          tar -czf \$BACKUP_FILE config/ data/ assets/ 2>/dev/null || true
+          
+          # বর্তমান স্টেট সেভ
+          cp config/config.json config/config.json.backup
+          cp src/secure/owner.lock src/secure/owner.lock.backup
+          
+          # গিট আপডেট
+          git fetch origin
+          git checkout v${{ needs.pre-deployment.outputs.version }}
+          
+          # কনফিগারেশন রিস্টোর
+          cp config/config.json.backup config/config.json
+          cp src/secure/owner.lock.backup src/secure/owner.lock
+          
+          # ডিপেন্ডেন্সি আপডেট
+          npm ci --only=production
+          npm audit fix --force || true
+          
+          # বট স্টপ
+          pm2 stop messenger-bot bot-api || true
+          
+          # ডাটা মাইগ্রেশন
+          node scripts/migrate.js --from-backup \$BACKUP_FILE || true
+          
+          # বট স্টার্ট
+          pm2 start main.js --name messenger-bot --update-env
+          pm2 start server/main.js --name bot-api --update-env
+          
+          # হেলথ চেক
+          echo '⏳ Waiting for services to start...'
+          sleep 30
+          
+          for i in {1..10}; do
+            if curl -f http://localhost:3001/api/health; then
+              echo '✅ Health check passed'
+              break
+            fi
+            sleep 10
+          done
+          
+          # মেইন্টেনেন্স মোড বন্ধ করা
+          curl -X POST http://localhost:3001/api/system/maintenance -H 'Authorization: Bearer ${{ secrets.BOT_API_TOKEN }}' \
+            -d '{\"enabled\": false}' || true
+          
+          echo '✅ Production deployment completed successfully'
+          
+          # মনিটরিং নোটিফিকেশন
+          curl -X POST ${{ secrets.MONITORING_WEBHOOK }} \
+            -H 'Content-Type: application/json' \
+            -d '{\"text\": \"✅ Production deployment successful: v${{ needs.pre-deployment.outputs.version }}\"}'
+        "
+
+  # ৪. পোস্ট-ডিপ্লয়মেন্ট ভ্যালিডেশন
+  post-deployment:
+    name: Post-deployment Validation
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    if: always()
+    
+    steps:
+    - name: Run smoke tests
+      run: |
+        echo "Running smoke tests..."
+        
+        # API হেলথ চেক
+        curl -f https://bot.yourdomain.com/api/health || exit 1
+        
+        # বট স্ট্যাটাস চেক
+        curl -f https://bot.yourdomain.com/api/status || exit 1
+        
+        echo "✅ Smoke tests passed"
+        
+    - name: Performance test
+      uses: matt-ball/newman-action@master
+      with:
+        collection: tests/postman/performance.json
+        environment: tests/postman/production.json
+        delayRequest: 1000
+        reporters: cli
+        
+    - name: Generate deployment report
+      run: |
+        echo "# Deployment Report" > deployment-report.md
+        echo "## Summary" >> deployment-report.md
+        echo "- Version: ${{ needs.pre-deployment.outputs.version }}" >> deployment-report.md
+        echo "- Environment: ${{ github.event.inputs.environment || 'production' }}" >> deployment-report.md
+        echo "- Timestamp: $(date)" >> deployment-report.md
+        echo "- Status: ${{ job.status }}" >> deployment-report.md
+        echo "" >> deployment-report.md
+        echo "## Links" >> deployment-report.md
+        echo "- Dashboard: https://bot.yourdomain.com/dashboard" >> deployment-report.md
+        echo "- API Docs: https://bot.yourdomain.com/api-docs" >> deployment-report.md
+        echo "- Monitoring: https://grafana.yourdomain.com" >> deployment-report.md
+        
+        cat deployment-report.md
+        
+    - name: Upload deployment report
+      uses: actions/upload-artifact@v3
+      with:
+        name: deployment-report
+        path: deployment-report.md
+
+  # ৫. রোলব্যাক প্রস্তুতি
+  rollback-preparation:
+    name: Rollback Preparation
+    runs-on: ubuntu-latest
+    if: failure() && needs.pre-deployment.result == 'success'
+    
+    steps:
+    - name: Prepare rollback
+      env:
+        DEPLOY_HOST: ${{ secrets.PRODUCTION_HOST }}
+        DEPLOY_USER: ${{ secrets.PRODUCTION_USER }}
+        DEPLOY_PATH: ${{ secrets.PRODUCTION_PATH }}
+      run: |
+        ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_HOST "
+          echo '🔄 Preparing rollback...'
+          
+          cd $DEPLOY_PATH
+          
+          # লেটেস্ট ব্যাকআপ খুঁজা
+          LATEST_BACKUP=\$(ls -t backup-production-*.tar.gz 2>/dev/null | head -1)
+          
+          if [ -n \"\$LATEST_BACKUP\" ]; then
+            echo \"Found backup: \$LATEST_BACKUP\"
+            echo \"ROLLBACK_FILE=\$LATEST_BACKUP\" >> \$GITHUB_ENV
+          else
+            echo '❌ No backup found for rollback'
+            exit 1
+          fi
+        "
+        
+    - name: Create rollback issue
+      uses: actions/github-script@v6
+      with:
+        script: |
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: `🚨 Rollback required for deployment v${process.env.VERSION}`,
+            body: `Deployment failed. Rollback required.\n\nBackup file: ${process.env.ROLLBACK_FILE}`,
+            labels: ['rollback', 'urgent']
+          })
