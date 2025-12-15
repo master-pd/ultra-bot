@@ -1,0 +1,292 @@
+‎# ULTRA PROFESSIONAL MESSENGER BOT – FULL PROJECT STRUCTURE (appstats Integrated)
+‎
+‎messenger-bot/
+‎├─ src/
+‎│  ├─ commands/
+‎│  │  ├─ normal/                 # Normal commands (User accessible)
+‎│  │  │  ├─ help.js
+‎│  │  │  ├─ info.js
+‎│  │  │  └─ stats.js
+‎│  │  ├─ fun/                    # Fun commands (Admin/Owner only)
+‎│  │  │  ├─ chor.json
+‎│  │  │  ├─ murgi.json
+‎│  │  │  ├─ abal.json
+‎│  │  │  ├─ senior.json
+‎│  │  │  ├─ cow.json
+‎│  │  │  └─ goat.json
+‎│  │  └─ admin/                  # Admin commands
+‎│  │     ├─ startFun.js
+‎│  │     ├─ stopFun.js
+‎│  │     ├─ manageGroups.js
+‎│  │     ├─ editAdminPhoto.js
+‎│  │     └─ updateFunJSON.js
+‎│  ├─ secure/
+‎│  │  ├─ owner.lock              # Owner UID (hashed, hidden)
+‎│  │  ├─ verifyOwner.js           # Verify Owner
+‎│  │  ├─ guard.js                 # Role enforcement: Owner/Admin/User
+‎│  │  └─ appstats.json            # Bot session / login info (secondary account)
+‎│  ├─ utils/
+‎│  │  ├─ photo.js                 # Owner/Admin/User photo logic
+‎│  │  ├─ delay.js                 # Random / fast delay logic
+‎│  │  ├─ api.js                   # Messenger API wrapper
+‎│  │  ├─ logger.js                # Logs for debugging
+‎│  │  ├─ validator.js             # Input validation & security
+‎│  │  └─ stats.js                 # Optional: bot usage stats
+‎│  └─ index.js                    # Main bot entry point
+‎├─ data/
+‎│  ├─ fun-json/                   # Fun JSON files (separate per command)
+‎│  │  ├─ chor.json
+‎│  │  ├─ murgi.json
+‎│  │  ├─ abal.json
+‎│  │  ├─ senior.json
+‎│  │  ├─ cow.json
+‎│  │  └─ goat.json
+‎│  ├─ admin-photos/               # Admin photos (max 3)
+‎│  │  ├─ admin1.png
+‎│  │  ├─ admin2.png
+‎│  │  └─ admin3.png
+‎│  └─ logs/                       # Optional logs for debugging / usage
+‎├─ config/
+‎│  ├─ config.json                 # Editable: admins, prefix
+‎│  └─ settings.json               # Optional bot settings
+‎├─ assets/
+‎│  ├─ owner-photos/               # Owner photo URLs (10–12)
+‎│  │  └─ ownerPhotos.json
+‎│  └─ media/                      # Optional media for fun commands
+‎├─ package.json
+‎├─ package-lock.json
+‎└─ README.md
+‎
+‎
+‎# ULTRA PROFESSIONAL MESSENGER BOT – MASTER FRAMEWORK
+‎
+‎---
+‎
+‎## 1️⃣ BOT ROLES & PERMISSIONS
+‎
+‎### 👤 USER
+‎- Basic group member
+‎- Can use **Normal commands** only
+‎- No control over bot system
+‎
+‎### 🛠️ ADMIN (PUBLIC & CHANGEABLE)
+‎- Can be changed in `config.json`
+‎- Repo fork user can assign themselves
+‎- Powers:
+‎  - Start / stop Fun mode
+‎  - Manage groups (optional commands)
+‎  - Edit admin photo (max 3)
+‎  - Edit general Fun JSON content
+‎- Cannot access Owner powers
+‎- Can change prefix
+‎
+‎### 👑 OWNER / BOT CREATOR (HIDDEN & IMMUTABLE)
+‎- Only you
+‎- Hidden from config, help, or repo files
+‎- Powers:
+‎  - Override admin powers
+‎  - Emergency bot shutdown
+‎  - Emergency stop any fun
+‎  - Full control over owner-specific commands
+‎- Info stored obfuscated / hashed internally
+‎- Cannot be edited or overridden by anyone else
+‎
+‎---
+‎
+‎## 2️⃣ PHOTO MANAGEMENT
+‎
+‎### 🔹 OWNER PHOTO
+‎- Stored as **static URL** (imgbb or similar)
+‎- Total 10–12 URLs for random selection
+‎- Displayed randomly when user interacts (comment, mention)
+‎- Cannot be replaced or deleted by anyone
+‎- Formats: `.png` / `.jpg` / `.jpeg`
+‎- Priority: **Owner > Admin > User**
+‎
+‎### 🔹 ADMIN PHOTO
+‎- Maximum 3 photos
+‎- Can be local files or URLs
+‎- Forked repo users can edit admin photos
+‎- Displayed whenever admin action is required
+‎- Cannot override Owner photos
+‎
+‎### 👤 USER PHOTO
+‎- Pulled live via FB API
+‎- Overrides no one
+‎- Only displayed for user-specific messages or comments
+‎
+‎---
+‎
+‎## 3️⃣ FUN SYSTEM (ADMIN & OWNER ONLY)
+‎
+‎### 🔹 Fun Command Types
+‎- chor, murgi, abal, senior, cow, goat
+‎- Flexible for future addition
+‎
+‎### 🔹 Fun Data
+‎- Each fun type has separate JSON file
+‎- Each line sent sequentially
+‎- Continuous loop until `stopfun` command
+‎- Fast execution: **0.3–0.6s delay per line**
+‎
+‎### 🔹 Access Restriction
+‎- Only **Admin and Owner** can run Fun commands
+‎- **Normal Users cannot trigger any Fun commands**
+‎
+‎### 🔹 Stop / Emergency Control
+‎- Admin can stop via `stopfun`
+‎- Owner can override and stop instantly
+‎- Fun loops are thread-specific
+‎
+‎---
+‎
+‎## 4️⃣ DELAY & PERFORMANCE STRATEGY
+‎
+‎- Random delay: 0.3 – 0.6 seconds per message
+‎- Human-like timing
+‎- Prevents user offline or spam detection
+‎- Looping fast but safe
+‎
+‎---
+‎
+‎## 5️⃣ SAFETY & CONTROL
+‎
+‎- No auto join
+‎- yes auto add friend/share
+‎- Manual start / stop
+‎- Thread-specific Fun loops
+‎- Emergency Owner override
+‎- Fork-safe GitHub setup
+‎
+‎---
+‎
+‎## 6️⃣ GITHUB FRIENDLY DESIGN
+‎
+‎### Repo user can:
+‎- Assign themselves admin
+‎- Edit admin photo (max 3)
+‎- Change prefix
+‎- Update general Fun JSON content
+‎
+‎### Repo user cannot:
+‎- Access Owner powers
+‎- Edit Owner info
+‎- Delete or replace Owner photo
+‎- Override Owner authority
+‎
+‎---
+‎
+‎## 7️⃣ CHECKLIST FOR DEV TEAM
+‎
+‎- [ ] Role system: User/Admin/Owner clear
+‎- [ ] Normal User restricted from Fun commands
+‎- [ ] Owner hidden & immutable
+‎- [ ] Admin editable but limited
+‎- [ ] Owner photo: URL only, random, immutable
+‎- [ ] Admin photo: max 3, editable
+‎- [ ] User photo: live FB profile
+‎- [ ] Fun JSON: looping, fast, thread-specific
+‎- [ ] Delay: 0.3–0.6s
+‎- [ ] Emergency stop: Owner override
+‎- [ ] GitHub safe: fork does not break Owner system
+‎
+‎---
+‎
+‎## 8️⃣ FINAL SUMMARY
+‎
+‎> Bot designed for professional team development  
+‎> Fun commands: Admin & Owner only  
+‎> Owner fully protected  
+‎> Admin editable within limits  
+‎> Normal User safe and restricted  
+‎> Photo & role logic ensures security, randomness, and control  
+‎> Fully GitHub fork-safe
+‎
+‎# ULTRA PROFESSIONAL MESSENGER BOT – COMPLETE FEATURE LIST
+‎
+‎---
+‎
+‎## ROLES & PERMISSIONS
+‎- Normal Users: Normal commands only, no Fun access
+‎- Admins: Start/Stop Fun, manage groups, edit admin photos (max 3), change prefix
+‎- Owner: Full control, emergency shutdown, override admin, hidden & immutable
+‎
+‎## PHOTO SYSTEM
+‎- Owner: 10–12 static URLs, random, immutable, priority highest
+‎- Admin: Max 3 photos, editable, displayed for admin actions
+‎- User: Live profile photos via FB API, no override
+‎
+‎## FUN SYSTEM
+‎- Commands: chor, murgi, abal, senior, cow, goat
+‎- JSON-based line loop
+‎- Admin & Owner only
+‎- Fast execution 0.3–0.6s per line
+‎- Emergency stop: Admin or Owner
+‎
+‎## PERFORMANCE & SAFETY
+‎- Random delay 0.3–0.6s
+‎- Human-like timing
+‎- Manual start/stop
+‎- Thread-specific Fun loops
+‎- No auto join/share/add
+‎
+‎## GITHUB FRIENDLY
+‎- Repo users: admin assign, admin photo edit, prefix change, Fun JSON update
+‎- Repo users cannot edit Owner info, Owner photo, or override Owner
+‎- Fork-safe design
+‎
+‎## CHECKLIST FOR DEV TEAM
+‎- Roles clear
+‎- Fun restrictions
+‎- Owner hidden & immutable
+‎- Photo logic enforced
+‎- Fast execution
+‎- Emergency override
+‎- GitHub safety
+‎
+‎
+‎𝗕𝗢𝗧 𝗔𝗡𝗗 𝗗𝗘𝗩𝗘𝗟𝗢𝗣𝗘𝗥 𝗜𝗡𝗙𝗢𝗥𝗠𝗔𝗧𝗜𝗢𝗡
+‎
+‎🤖 𝗕𝗢𝗧 𝗡𝗔𝗠𝗘:
+‎𝗬𝗢𝗨𝗥 𝗖𝗥𝗨𝗦𝗛 ⟵𝗼_𝟬
+‎
+‎👤 𝗗𝗘𝗩𝗘𝗟𝗢𝗣𝗘𝗥 𝗜𝗡𝗙𝗢𝗥𝗠𝗔𝗧𝗜𝗢𝗡:
+‎
+‎𝗣𝗘𝗥𝗦𝗢𝗡𝗔𝗟 𝗗𝗘𝗧𝗔𝗜𝗟𝗦:
+‎• 𝗡𝗮𝗺𝗲: 𝗥𝗔𝗡𝗔
+‎• 𝗦𝗼𝗰𝗶𝗮𝗹 𝗡𝗮𝗺𝗲: 𝗠𝗔𝗦𝗧𝗘𝗥 🪓
+‎• 𝗔𝗴𝗲: 𝟮𝟬 𝘆𝗲𝗮𝗿𝘀
+‎• 𝗦𝘁𝗮𝘁𝘂𝘀: 𝗦𝗶𝗻𝗴𝗹𝗲
+‎• 𝗘𝗱𝘂𝗰𝗮𝘁𝗶𝗼𝗻: 𝗦𝗦𝗖 𝗕𝗮𝘁𝗰𝗵 𝟮𝟬𝟮𝟮
+‎• 𝗟𝗼𝗰𝗮𝘁𝗶𝗼𝗻: 𝗙𝗮𝗿𝗶𝗱𝗽𝘂𝗿, 𝗗𝗵𝗮𝗸𝗮, 𝗕𝗮𝗻𝗴𝗹𝗮𝗱𝗲𝘀𝗵
+‎
+‎𝗣𝗥𝗢𝗙𝗘𝗦𝗦𝗜𝗢𝗡𝗔𝗟 𝗜𝗡𝗙𝗢𝗥𝗠𝗔𝗧𝗜𝗢𝗡:
+‎• 𝗣𝗿𝗼𝗳𝗲𝘀𝘀𝗶𝗼𝗻: 𝗦𝗲𝗰𝘂𝗿𝗶𝘁𝘆 𝗙𝗶𝗲𝗹𝗱
+‎• 𝗪𝗼𝗿𝗸 𝗧𝘆𝗽𝗲: 𝗘𝘅𝗽𝗲𝗿𝗶𝗺𝗲𝗻𝘁 / 𝗧𝗲𝗰𝗵𝗻𝗶𝗰𝗮𝗹 𝗢𝗽𝗲𝗿𝗮𝘁𝗶𝗼𝗻𝘀
+‎• 𝗦𝗸𝗶𝗹𝗹𝘀:
+‎  - 𝗩𝗶𝗱𝗲𝗼 𝗘𝗱𝗶𝘁𝗶𝗻𝗴
+‎  - 𝗣𝗵𝗼𝘁𝗼 𝗘𝗱𝗶𝘁𝗶𝗻𝗴
+‎  - 𝗠𝗼𝗯𝗶𝗹𝗲 𝗧𝗲𝗰𝗵𝗻𝗼𝗹𝗼𝗴𝘆
+‎  - 𝗢𝗻𝗹𝗶𝗻𝗲 𝗢𝗽𝗲𝗿𝗮𝘁𝗶𝗼𝗻𝘀
+‎  - 𝗜𝗻 𝗧𝗿𝗮𝗶𝗻𝗶𝗻𝗴: 𝗖𝘆𝗯𝗲𝗿 𝗦𝗲𝗰𝘂𝗿𝗶𝘁𝘆 (𝗖𝘂𝗿𝗿𝗲𝗻𝘁𝗹𝘆 𝗟𝗲𝗮𝗿𝗻𝗶𝗻𝗴)
+‎
+‎𝗖𝗢𝗡𝗧𝗔𝗖𝗧 𝗗𝗘𝗧𝗔𝗜𝗟𝗦:
+‎• 𝗘𝗺𝗮𝗶𝗹: 𝗿𝗮𝗻𝗮𝗲𝗱𝗶𝘁𝘇𝟯𝟯𝟯@𝗴𝗺𝗮𝗶𝗹.𝗰𝗼𝗺
+‎• 𝗧𝗲𝗹𝗲𝗴𝗿𝗮𝗺 𝗕𝗼𝘁: @𝗯𝗹𝗮𝗰𝗸_𝗹𝗼𝘃𝗲𝗿𝘀𝟭_𝗯𝗼𝘁
+‎• 𝗧𝗲𝗹𝗲𝗴𝗿𝗮𝗺 𝗣𝗿𝗼𝗳𝗶𝗹𝗲: @𝗿𝗮𝗻𝗮_𝗲𝗱𝗶𝘁𝘇_𝟬𝟬
+‎• 𝗦𝘂𝗽𝗽𝗼𝗿𝘁 𝗖𝗵𝗮𝗻𝗻𝗲𝗹: 𝗵𝘁𝘁𝗽𝘀://𝘁.𝗺𝗲/𝗺𝗮𝘀𝘁𝗲𝗿_𝗮𝗰𝗰𝗼𝘂𝗻𝘁_𝗿𝗲𝗺𝗼𝘃𝗲𝗿_𝗰𝗵𝗮𝗻𝗻𝗲𝗹
+‎• 𝗣𝗵𝗼𝗻𝗲: 𝟬𝟭𝟴𝟰𝟳𝟲𝟯𝟰𝟰𝟴𝟲
+‎
+‎𝗚𝗢𝗔𝗟𝗦 & 𝗗𝗥𝗘𝗔𝗠𝗦:
+‎• 𝗗𝗿𝗲𝗮𝗺: 𝗕𝗲𝗰𝗼𝗺𝗲 𝗮 𝗣𝗿𝗼𝗳𝗲𝘀𝘀𝗶𝗼𝗻𝗮𝗹 𝗗𝗲𝘃𝗲𝗹𝗼𝗽𝗲𝗿
+‎• 𝗣𝗿𝗼𝗷𝗲𝗰𝘁: 𝗪𝗲𝗯𝘀𝗶𝘁𝗲 (𝗖𝗼𝗺𝗶𝗻𝗴 𝗦𝗼𝗼𝗻)
+‎
+‎𝗦𝗨𝗠𝗠𝗔𝗥𝗬:
+‎• 𝗕𝗼𝘁: 𝗬𝗢𝗨𝗥 𝗖𝗥𝗨𝗦𝗛 ⟵𝗼_𝟬
+‎• 𝗗𝗲𝘃𝗲𝗹𝗼𝗽𝗲𝗿: 𝗥𝗔𝗡𝗔 (𝗠𝗔𝗦𝗧𝗘𝗥 🪓)
+‎• 𝗙𝗿𝗼𝗺: 𝗙𝗮𝗿𝗶𝗱𝗽𝘂𝗿, 𝗗𝗵𝗮𝗸𝗮
+‎• 𝗖𝘂𝗿𝗿𝗲𝗻𝘁 𝗦𝘁𝗮𝘁𝘂𝘀: 𝗗𝗲𝘃𝗲𝗹𝗼𝗽𝗲𝗿 𝗶𝗻 𝗧𝗿𝗮𝗶𝗻𝗶𝗻𝗴
+‎• 𝗟𝗲𝗮𝗿𝗻𝗶𝗻𝗴: 𝗖𝘆𝗯𝗲𝗿 𝗦𝗲𝗰𝘂𝗿𝗶𝘁𝘆 (𝗢𝗻𝗴𝗼𝗶𝗻𝗴)
+‎
+‎
+‎bOT owner uid  : 61578706761898 

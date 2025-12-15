@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  messenger-bot:
+    build: .
+    container_name: ultra-messenger-bot
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - BOT_PREFIX=!
+      - BOT_OWNER=${BOT_OWNER:-61578706761898}
+    volumes:
+      # Persistent data storage
+      - ./data:/app/data
+      - ./config:/app/config
+      - ./assets:/app/assets
+      - ./backups:/app/backups
+      # Logs
+      - ./logs:/app/logs
+    # Security: read-only root filesystem
+    read_only: true
+    tmpfs:
+      - /tmp
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    # Health check
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('fs').existsSync('/app/data/logs/health.check') || process.exit(1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional: Monitoring service
+  monitor:
+    image: prom/prometheus:latest
+    container_name: bot-monitor
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    restart: unless-stopped
+
+  # Optional: Log aggregator
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    restart: unless-stopped
+
+volumes:
+  grafana-storage:

@@ -1,0 +1,24 @@
+{
+  "name": "𝗬𝗢𝗨𝗥 𝗖𝗥𝗨𝗦𝗛 ⟵𝗼_𝟬",
+  "version": "1.0.0",
+  "description": "Advanced Facebook Messenger Bot with role-based access, fun system, and secure owner control.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "setup": "node src/secure/setupOwner.js"
+  },
+  "dependencies": {
+    "facebook-chat-api": "github:Schmavery/facebook-chat-api",
+    "fs-extra": "^11.2.0",
+    "crypto": "^1.0.1",
+    "axios": "^1.6.0",
+    "moment": "^2.29.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
