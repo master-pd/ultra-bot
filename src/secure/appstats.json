@@ -1,0 +1,17 @@
+{
+  "cookies": [
+    {
+      "key": "c_user",
+      "value": "YOUR_FACEBOOK_USER_ID",
+      "domain": ".facebook.com",
+      "path": "/"
+    },
+    {
+      "key": "xs",
+      "value": "YOUR_SESSION_TOKEN",
+      "domain": ".facebook.com",
+      "path": "/"
+    }
+  ],
+  "loggedIn": true
+}
