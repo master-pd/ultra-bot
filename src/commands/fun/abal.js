@@ -3,24 +3,23 @@ const path = require('path');
 const delay = require('../../utils/delay');
 
 module.exports = {
-    name: 'chor',
-    description: 'Chor fun command',
+    name: 'abal',
+    description: 'Abal fun command',
     type: 'fun',
     
     async execute(api, threadID, bot, userID) {
-        const funDataPath = path.join(__dirname, '../../../data/fun-json/chor.json');
+        const funDataPath = path.join(__dirname, '../../../data/fun-json/abal.json');
         
         if (!await fs.pathExists(funDataPath)) {
-            await api.sendMessage("❌ chor.json data file not found!", threadID);
+            await api.sendMessage("❌ abal.json data file not found!", threadID);
             return;
         }
         
         const funData = await fs.readJson(funDataPath);
         
-        // Store fun data in bot instance
         if (!bot.funThreads.has(threadID)) {
             bot.funThreads.set(threadID, {
-                type: 'chor',
+                type: 'abal',
                 index: 0,
                 interval: null,
                 active: true,
@@ -28,12 +27,11 @@ module.exports = {
             });
         }
         
-        await api.sendMessage("🎮 Starting CHOR fun! Type !stopfun to stop.", threadID);
+        await api.sendMessage("🤪 Starting ABAL fun! Type !stopfun to stop.", threadID);
         
         const funThread = bot.funThreads.get(threadID);
         let iteration = 0;
         
-        // Start the fun loop
         funThread.interval = setInterval(async () => {
             try {
                 if (!funThread.active) {
@@ -43,49 +41,54 @@ module.exports = {
                 
                 const message = funData[funThread.index % funData.length];
                 
-                // Add some variation to messages
+                // Add crazy variations
                 let finalMessage = message;
-                if (iteration % 5 === 0) {
-                    finalMessage = `🔥 ${message}`;
-                } else if (iteration % 7 === 0) {
-                    finalMessage = `⚡ ${message}`;
+                if (iteration % 4 === 0) {
+                    finalMessage = message.toUpperCase() + "!!!";
+                } else if (iteration % 6 === 0) {
+                    finalMessage = `🎭 ${message} 🤡`;
                 }
                 
                 await api.sendMessage(finalMessage, threadID);
                 
-                // Update stats
                 funThread.index++;
                 iteration++;
                 
-                // Random delay between messages
                 const waitTime = await delay.funDelay(iteration);
                 await delay.sleep(waitTime);
                 
-                // Every 10 messages, send a status update
-                if (iteration % 10 === 0) {
+                // Random abal reactions
+                if (iteration % 12 === 0) {
+                    const reactions = [
+                        "আবাল পাওয়ার ম্যাক্স! 💥",
+                        "আবাল লেভেল 업! 📈",
+                        "আবাল অ্যাটাক! ⚔️",
+                        "আবাল ডিফেন্স! 🛡️"
+                    ];
+                    const randomReaction = reactions[Math.floor(Math.random() * reactions.length)];
+                    
                     await api.sendMessage(
-                        `📊 Chor Fun Status:\n` +
-                        `• Messages sent: ${iteration}\n` +
-                        `• Loop count: ${Math.floor(funThread.index / funData.length)}\n` +
-                        `• Still going strong! 💪`,
+                        `📊 Abal Status:\n` +
+                        `• ${randomReaction}\n` +
+                        `• Messages: ${iteration}\n` +
+                        `• আবাল মোড: ACTIVE 🚀`,
                         threadID
                     );
                     await delay.humanDelay();
                 }
                 
             } catch (error) {
-                console.error("Chor fun error:", error);
+                console.error("Abal fun error:", error);
                 clearInterval(funThread.interval);
                 bot.funThreads.delete(threadID);
             }
-        }, 500); // Base interval, actual delay added inside
+        }, 500);
         
-        // Set timeout to auto-stop after 5 minutes
         setTimeout(() => {
             if (funThread.active) {
                 clearInterval(funThread.interval);
                 bot.funThreads.delete(threadID);
-                api.sendMessage("⏰ Chor fun auto-stopped after 5 minutes!", threadID);
+                api.sendMessage("⏰ Abal fun auto-stopped after 5 minutes!", threadID);
             }
         }, 5 * 60 * 1000);
     },
@@ -93,27 +96,12 @@ module.exports = {
     stop(threadID, bot) {
         if (bot.funThreads.has(threadID)) {
             const funThread = bot.funThreads.get(threadID);
-            if (funThread.type === 'chor') {
+            if (funThread.type === 'abal') {
                 clearInterval(funThread.interval);
                 bot.funThreads.delete(threadID);
                 return true;
             }
         }
         return false;
-    },
-    
-    getStatus(threadID, bot) {
-        if (bot.funThreads.has(threadID)) {
-            const funThread = bot.funThreads.get(threadID);
-            if (funThread.type === 'chor') {
-                return {
-                    active: true,
-                    type: 'chor',
-                    messagesSent: funThread.index,
-                    userID: funThread.userID
-                };
-            }
-        }
-        return { active: false };
     }
 };

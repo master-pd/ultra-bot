@@ -3,24 +3,23 @@ const path = require('path');
 const delay = require('../../utils/delay');
 
 module.exports = {
-    name: 'chor',
-    description: 'Chor fun command',
+    name: 'goat',
+    description: 'Goat fun command',
     type: 'fun',
     
     async execute(api, threadID, bot, userID) {
-        const funDataPath = path.join(__dirname, '../../../data/fun-json/chor.json');
+        const funDataPath = path.join(__dirname, '../../../data/fun-json/goat.json');
         
         if (!await fs.pathExists(funDataPath)) {
-            await api.sendMessage("❌ chor.json data file not found!", threadID);
+            await api.sendMessage("❌ goat.json data file not found!", threadID);
             return;
         }
         
         const funData = await fs.readJson(funDataPath);
         
-        // Store fun data in bot instance
         if (!bot.funThreads.has(threadID)) {
             bot.funThreads.set(threadID, {
-                type: 'chor',
+                type: 'goat',
                 index: 0,
                 interval: null,
                 active: true,
@@ -28,12 +27,11 @@ module.exports = {
             });
         }
         
-        await api.sendMessage("🎮 Starting CHOR fun! Type !stopfun to stop.", threadID);
+        await api.sendMessage("🐐 Starting GOAT fun! Type !stopfun to stop.", threadID);
         
         const funThread = bot.funThreads.get(threadID);
         let iteration = 0;
         
-        // Start the fun loop
         funThread.interval = setInterval(async () => {
             try {
                 if (!funThread.active) {
@@ -43,49 +41,55 @@ module.exports = {
                 
                 const message = funData[funThread.index % funData.length];
                 
-                // Add some variation to messages
+                // Add goat variations
                 let finalMessage = message;
-                if (iteration % 5 === 0) {
-                    finalMessage = `🔥 ${message}`;
-                } else if (iteration % 7 === 0) {
-                    finalMessage = `⚡ ${message}`;
+                const goatEmojis = ['🐐', '🐏', '🌿', '🏔️', '⛰️'];
+                const randomGoat = goatEmojis[Math.floor(Math.random() * goatEmojis.length)];
+                
+                if (iteration % 3 === 0) {
+                    finalMessage = `${randomGoat} ${message} ${randomGoat}`;
                 }
                 
                 await api.sendMessage(finalMessage, threadID);
                 
-                // Update stats
                 funThread.index++;
                 iteration++;
                 
-                // Random delay between messages
                 const waitTime = await delay.funDelay(iteration);
                 await delay.sleep(waitTime);
                 
-                // Every 10 messages, send a status update
-                if (iteration % 10 === 0) {
+                // Goat mountain adventures
+                if (iteration % 18 === 0) {
+                    const adventures = [
+                        "ছাগল পাহাড়ে চড়ছে! 🏔️",
+                        "ছাগল লাফাচ্ছে! 🦘",
+                        "ছাগল ঘাস খাচ্ছে! 🌿",
+                        "ছাগল দৌড়াচ্ছে! 🏃"
+                    ];
+                    const randomAdventure = adventures[Math.floor(Math.random() * adventures.length)];
+                    
                     await api.sendMessage(
-                        `📊 Chor Fun Status:\n` +
-                        `• Messages sent: ${iteration}\n` +
-                        `• Loop count: ${Math.floor(funThread.index / funData.length)}\n` +
-                        `• Still going strong! 💪`,
+                        `📊 Goat Adventure:\n` +
+                        `• ${randomAdventure}\n` +
+                        `• Total bleats: ${iteration}\n` +
+                        `• Adventure Level: EXTREME 🧗‍♂️`,
                         threadID
                     );
                     await delay.humanDelay();
                 }
                 
             } catch (error) {
-                console.error("Chor fun error:", error);
+                console.error("Goat fun error:", error);
                 clearInterval(funThread.interval);
                 bot.funThreads.delete(threadID);
             }
-        }, 500); // Base interval, actual delay added inside
+        }, 500);
         
-        // Set timeout to auto-stop after 5 minutes
         setTimeout(() => {
             if (funThread.active) {
                 clearInterval(funThread.interval);
                 bot.funThreads.delete(threadID);
-                api.sendMessage("⏰ Chor fun auto-stopped after 5 minutes!", threadID);
+                api.sendMessage("⏰ Goat fun auto-stopped after 5 minutes!", threadID);
             }
         }, 5 * 60 * 1000);
     },
@@ -93,27 +97,12 @@ module.exports = {
     stop(threadID, bot) {
         if (bot.funThreads.has(threadID)) {
             const funThread = bot.funThreads.get(threadID);
-            if (funThread.type === 'chor') {
+            if (funThread.type === 'goat') {
                 clearInterval(funThread.interval);
                 bot.funThreads.delete(threadID);
                 return true;
             }
         }
         return false;
-    },
-    
-    getStatus(threadID, bot) {
-        if (bot.funThreads.has(threadID)) {
-            const funThread = bot.funThreads.get(threadID);
-            if (funThread.type === 'chor') {
-                return {
-                    active: true,
-                    type: 'chor',
-                    messagesSent: funThread.index,
-                    userID: funThread.userID
-                };
-            }
-        }
-        return { active: false };
     }
 };

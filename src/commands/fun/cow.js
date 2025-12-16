@@ -3,24 +3,23 @@ const path = require('path');
 const delay = require('../../utils/delay');
 
 module.exports = {
-    name: 'chor',
-    description: 'Chor fun command',
+    name: 'cow',
+    description: 'Cow fun command',
     type: 'fun',
     
     async execute(api, threadID, bot, userID) {
-        const funDataPath = path.join(__dirname, '../../../data/fun-json/chor.json');
+        const funDataPath = path.join(__dirname, '../../../data/fun-json/cow.json');
         
         if (!await fs.pathExists(funDataPath)) {
-            await api.sendMessage("❌ chor.json data file not found!", threadID);
+            await api.sendMessage("❌ cow.json data file not found!", threadID);
             return;
         }
         
         const funData = await fs.readJson(funDataPath);
         
-        // Store fun data in bot instance
         if (!bot.funThreads.has(threadID)) {
             bot.funThreads.set(threadID, {
-                type: 'chor',
+                type: 'cow',
                 index: 0,
                 interval: null,
                 active: true,
@@ -28,12 +27,11 @@ module.exports = {
             });
         }
         
-        await api.sendMessage("🎮 Starting CHOR fun! Type !stopfun to stop.", threadID);
+        await api.sendMessage("🐄 Starting COW fun! Type !stopfun to stop.", threadID);
         
         const funThread = bot.funThreads.get(threadID);
         let iteration = 0;
         
-        // Start the fun loop
         funThread.interval = setInterval(async () => {
             try {
                 if (!funThread.active) {
@@ -43,49 +41,55 @@ module.exports = {
                 
                 const message = funData[funThread.index % funData.length];
                 
-                // Add some variation to messages
+                // Add cow variations
                 let finalMessage = message;
-                if (iteration % 5 === 0) {
-                    finalMessage = `🔥 ${message}`;
-                } else if (iteration % 7 === 0) {
-                    finalMessage = `⚡ ${message}`;
+                const cowEmojis = ['🐄', '🐮', '🥛', '🍦', '🧀'];
+                const randomCow = cowEmojis[Math.floor(Math.random() * cowEmojis.length)];
+                
+                if (iteration % 4 === 0) {
+                    finalMessage = `${randomCow} ${message} ${randomCow}`;
                 }
                 
                 await api.sendMessage(finalMessage, threadID);
                 
-                // Update stats
                 funThread.index++;
                 iteration++;
                 
-                // Random delay between messages
                 const waitTime = await delay.funDelay(iteration);
                 await delay.sleep(waitTime);
                 
-                // Every 10 messages, send a status update
-                if (iteration % 10 === 0) {
+                // Cow farm updates
+                if (iteration % 20 === 0) {
+                    const farmUpdates = [
+                        "গরু চরছে মাঠে! 🌾",
+                        "গরু দুধ দিচ্ছে! 🥛",
+                        "গরু ঘুমাচ্ছে! 💤",
+                        "গরু ডাকছে! 🔊"
+                    ];
+                    const randomUpdate = farmUpdates[Math.floor(Math.random() * farmUpdates.length)];
+                    
                     await api.sendMessage(
-                        `📊 Chor Fun Status:\n` +
-                        `• Messages sent: ${iteration}\n` +
-                        `• Loop count: ${Math.floor(funThread.index / funData.length)}\n` +
-                        `• Still going strong! 💪`,
+                        `📊 Cow Farm Report:\n` +
+                        `• ${randomUpdate}\n` +
+                        `• Total moos: ${iteration}\n` +
+                        `• Farm Status: HAPPY 🐮`,
                         threadID
                     );
                     await delay.humanDelay();
                 }
                 
             } catch (error) {
-                console.error("Chor fun error:", error);
+                console.error("Cow fun error:", error);
                 clearInterval(funThread.interval);
                 bot.funThreads.delete(threadID);
             }
-        }, 500); // Base interval, actual delay added inside
+        }, 500);
         
-        // Set timeout to auto-stop after 5 minutes
         setTimeout(() => {
             if (funThread.active) {
                 clearInterval(funThread.interval);
                 bot.funThreads.delete(threadID);
-                api.sendMessage("⏰ Chor fun auto-stopped after 5 minutes!", threadID);
+                api.sendMessage("⏰ Cow fun auto-stopped after 5 minutes!", threadID);
             }
         }, 5 * 60 * 1000);
     },
@@ -93,27 +97,12 @@ module.exports = {
     stop(threadID, bot) {
         if (bot.funThreads.has(threadID)) {
             const funThread = bot.funThreads.get(threadID);
-            if (funThread.type === 'chor') {
+            if (funThread.type === 'cow') {
                 clearInterval(funThread.interval);
                 bot.funThreads.delete(threadID);
                 return true;
             }
         }
         return false;
-    },
-    
-    getStatus(threadID, bot) {
-        if (bot.funThreads.has(threadID)) {
-            const funThread = bot.funThreads.get(threadID);
-            if (funThread.type === 'chor') {
-                return {
-                    active: true,
-                    type: 'chor',
-                    messagesSent: funThread.index,
-                    userID: funThread.userID
-                };
-            }
-        }
-        return { active: false };
     }
 };
