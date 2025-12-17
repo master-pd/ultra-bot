@@ -18,7 +18,7 @@
     "fs-extra": "^11.2.0",
     "moment": "^2.29.4",
     "chalk": "^4.1.2",
-    "cloudinary": "^1.41.1",
+    "cloudinary": "^2.8.0",
     "firebase-admin": "^11.11.1",
     "express": "^4.18.2",
     "body-parser": "^1.20.2",
